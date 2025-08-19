@@ -153,11 +153,11 @@ class PaperChatView(generics.GenericAPIView):
                 sources=sources
             )
             
-            # Create highlights for relevant content
-            self._create_highlights(paper, user_message, response, relevant_chunks)
+            # Prepare highlighting data for frontend (use answer to find exact evidence)
+            highlighting_data = self._prepare_highlighting_data(relevant_chunks, answer_text=response)
             
-            # Prepare highlighting data for frontend
-            highlighting_data = self._prepare_highlighting_data(relevant_chunks)
+            # Create highlights for relevant content (store best phrases if available)
+            self._create_highlights(paper, user_message, response, highlighting_data)
             
             return Response({
                 'conversation_id': str(conversation.id),
@@ -174,7 +174,7 @@ class PaperChatView(generics.GenericAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    def _create_highlights(self, paper, question, answer, relevant_chunks):
+    def _create_highlights(self, paper, question, answer, highlighting_data_or_chunks):
         """Create highlights for relevant content in the paper."""
         try:
             # Create highlight for the question
@@ -195,13 +195,21 @@ class PaperChatView(generics.GenericAPIView):
                 color='#4ECDC4'
             )
             
-            # Create highlights for relevant chunks
-            for chunk_data in relevant_chunks:
-                if 'content' in chunk_data:
+            # Create highlights for the most relevant phrases (prefer evidence phrases)
+            for item in highlighting_data_or_chunks:
+                snippet = None
+                if isinstance(item, dict):
+                    # prefer the first phrase if available
+                    phrases = item.get('phrases') or []
+                    if phrases:
+                        snippet = phrases[0]
+                    elif 'content' in item:
+                        snippet = (item['content'][:200] + '...') if len(item['content']) > 200 else item['content']
+                if snippet:
                     PaperHighlight.objects.create(
                         paper=paper,
                         message=Message.objects.filter(conversation__paper=paper).last(),
-                        text_content=chunk_data['content'][:200] + '...',
+                        text_content=snippet,
                         highlight_type='relevant',
                         color='#FFD700'
                     )
@@ -209,15 +217,24 @@ class PaperChatView(generics.GenericAPIView):
             # Log error but don't fail the chat
             print(f"Error creating highlights: {e}")
     
-    def _prepare_highlighting_data(self, relevant_chunks):
-        """Prepare highlighting data for frontend with improved highlighting."""
+    def _prepare_highlighting_data(self, relevant_chunks, answer_text=None):
+        """Prepare highlighting data for frontend with improved highlighting.
+        If answer_text is provided, try to locate exact evidence sentences in chunks.
+        """
         highlighting_data = []
         
         for chunk in relevant_chunks:
             if 'content' in chunk:
-                # Extract key phrases for highlighting
                 content = chunk['content']
-                phrases = self._extract_highlight_phrases(content)
+                phrases = []
+                
+                # 1) If we have an answer, try to find exact evidence sentences
+                if answer_text:
+                    phrases = self._extract_evidence_phrases_from_answer(content, answer_text)
+                
+                # 2) Fallback to general phrase extraction
+                if not phrases:
+                    phrases = self._extract_highlight_phrases(content)
                 
                 highlighting_data.append({
                     'chunk_id': chunk.get('id', ''),
@@ -286,6 +303,28 @@ class PaperChatView(generics.GenericAPIView):
         # Return unique phrases, sorted by relevance (longer phrases first)
         unique_phrases = list(set(phrases))
         return sorted(unique_phrases, key=len, reverse=True)[:5]
+
+    def _extract_evidence_phrases_from_answer(self, content, answer_text):
+        """Try to pull exact sentences from content that match numbers/keywords in the answer."""
+        import re
+        phrases = []
+        # Collect numeric tokens and key terms from the answer
+        nums = re.findall(r"\b\d{1,6}\b", answer_text)
+        key_terms = [
+            'countries', 'country', 'participants', 'reviews', 'estimated', 'samples', 'respondents', 'papers', 'studies', 'subjects', 'n =', 'n=' , 'total'
+        ]
+        sentences = re.split(r'[.!?]+', content)
+        for sent in sentences:
+            sent_s = sent.strip()
+            if len(sent_s) < 20:
+                continue
+            sent_l = sent_s.lower()
+            # sentence should contain at least one number from answer and one key term
+            if any(n in sent_s for n in nums) and any(k in sent_l for k in key_terms):
+                phrases.append(sent_s)
+                if len(phrases) >= 3:
+                    break
+        return phrases
 
 
 class PaperHighlightsView(generics.ListAPIView):

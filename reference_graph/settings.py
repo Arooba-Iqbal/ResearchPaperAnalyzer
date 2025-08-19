@@ -133,6 +133,11 @@ CORS_ALLOWED_ORIGINS = [
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
 
+# Ollama (local LLM) settings
+USE_OLLAMA = os.getenv('USE_OLLAMA', 'false').lower() == 'true'
+OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'mistral')
+
 # ChromaDB settings
 CHROMA_DB_PATH = os.getenv('CHROMA_DB_PATH', BASE_DIR / 'chroma_db')
 

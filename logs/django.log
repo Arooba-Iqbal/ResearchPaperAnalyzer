@@ -1402,3 +1402,28 @@ Not Found: /api/papers/statistics/
 Not Found: /api/papers/statistics/
 Not Found: /api/papers/search/
 Not Found: /api/papers/search/
+Watching for file changes with StatReloader
+Not Found: /api/papers/statistics/
+/Users/dev/Documents/Project/chatbot/rag_engine.py changed, reloading.
+Watching for file changes with StatReloader
+/Users/dev/Documents/Project/chatbot/rag_engine.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Not Found: /api/papers/statistics/
+Watching for file changes with StatReloader
+Not Found: /api/papers/statistics/
+Internal Server Error: /api/papers/8ea8e1db-40f5-43cb-8b97-18a7bee1e36f/process-references/
+Internal Server Error: /api/papers/8ea8e1db-40f5-43cb-8b97-18a7bee1e36f/process-references/
+/Users/dev/Documents/Project/chatbot/views.py changed, reloading.
+Watching for file changes with StatReloader
+/Users/dev/Documents/Project/chatbot/views.py changed, reloading.
+Watching for file changes with StatReloader
+Not Found: /api/papers/statistics/
+Not Found: /api/papers/statistics/
+Watching for file changes with StatReloader
+Not Found: /api/papers/statistics/
+Not Found: /api/papers/statistics/
+Watching for file changes with StatReloader
+Not Found: /api/papers/statistics/
+Watching for file changes with StatReloader
+Not Found: /api/papers/statistics/

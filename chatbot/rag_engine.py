@@ -6,6 +6,7 @@ import json
 from typing import List, Dict, Tuple, Optional
 from django.conf import settings
 from papers.models import Paper, PaperChunk
+import requests
 
 
 class RAGEngine:
@@ -14,7 +15,15 @@ class RAGEngine:
     def __init__(self):
         self.chunk_size = 1000
         self.chunk_overlap = 200
-        self.top_k = 5
+        # Allow tuning via env
+        try:
+            self.top_k = int(os.getenv('RAG_TOP_K', '5'))
+        except ValueError:
+            self.top_k = 5
+        # Local LLM (Ollama) configuration
+        self.use_ollama = os.getenv('USE_OLLAMA', 'false').lower() == 'true'
+        self.ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+        self.ollama_model = os.getenv('OLLAMA_MODEL', 'mistral')
     
     def process_paper(self, paper: Paper) -> bool:
         """Process a paper and create chunks."""
@@ -62,8 +71,31 @@ class RAGEngine:
             if not relevant_chunks:
                 return "I couldn't find relevant information in this paper to answer your question.", [], []
             
-            # Generate simple response
-            response = self._generate_simple_response(question, relevant_chunks, paper)
+            # Prefer extractive answer for count questions to avoid hallucinations
+            if self._is_count_question(question):
+                extracted = self._extract_count_answer(question, relevant_chunks)
+                if extracted:
+                    response = self._format_count_answer(question, extracted["value"], extracted["sentence"], paper)
+                else:
+                    # Fall back to generator (with strict refusal if not found)
+                    if self.use_ollama:
+                        try:
+                            response = self._generate_ollama_response(question, relevant_chunks, paper)
+                        except Exception as e:
+                            print(f"Error using Ollama: {e}")
+                            response = self._generate_simple_response(question, relevant_chunks, paper)
+                    else:
+                        response = self._generate_simple_response(question, relevant_chunks, paper)
+            else:
+                # Generate response using local LLM (Ollama) if enabled, otherwise simple method
+                if self.use_ollama:
+                    try:
+                        response = self._generate_ollama_response(question, relevant_chunks, paper)
+                    except Exception as e:
+                        print(f"Error using Ollama: {e}")
+                        response = self._generate_simple_response(question, relevant_chunks, paper)
+                else:
+                    response = self._generate_simple_response(question, relevant_chunks, paper)
             
             # Format chunks for response
             formatted_chunks = []
@@ -334,6 +366,113 @@ class RAGEngine:
 {content}
 
 **Summary:** The highlighted sections contain information that addresses your question: "{question}"."""
+    
+    def _generate_ollama_response(self, question: str, chunks: List[PaperChunk], paper: Paper) -> str:
+        """Generate response using a local Ollama model (free, no API key)."""
+        # Build concise academic system prompt
+        system_prompt = (
+            "You are an expert academic assistant. Answer ONLY from the provided paper content. "
+            "If the answer is not explicitly present in the provided text, respond with: 'Not found in provided content.' "
+            "Be specific, concise, and maintain an academic tone. When answering, quote the supporting sentence."
+        )
+        
+        # Prepare context from relevant chunks (truncate to keep prompt reasonable)
+        joined = []
+        current_len = 0
+        # Allow larger context; configurable via env
+        try:
+            max_chars = int(os.getenv('OLLAMA_MAX_CONTEXT_CHARS', '12000'))
+        except ValueError:
+            max_chars = 12000
+        for i, ch in enumerate(chunks):
+            part = f"Section {i+1}:\n{ch.content.strip()}\n\n"
+            if current_len + len(part) > max_chars:
+                remaining = max_chars - current_len
+                if remaining > 200:
+                    joined.append(part[:remaining] + "...")
+                break
+            joined.append(part)
+            current_len += len(part)
+        context = "".join(joined) if joined else ""
+        
+        user_prompt = (
+            f"Question: {question}\n\n"
+            f"Paper Information:\n- Title: {paper.title}\n- Author(s): {paper.author}\n"
+            f"- Year: {getattr(paper, 'year', 'Unknown') or 'Unknown'}\n"
+            f"Relevant Content:\n{context}\n\n"
+            "Answer based ONLY on the content above. If the answer is missing, reply exactly: Not found in provided content."
+        )
+        
+        payload = {
+            "model": self.ollama_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            # Ensure a single JSON response and adequate context window
+            "stream": False,
+            "options": {"temperature": 0.1, "num_ctx": 4096},
+        }
+        resp = requests.post(f"{self.ollama_host}/api/chat", json=payload, timeout=120)
+        resp.raise_for_status()
+        data = resp.json()
+        # Ollama returns either streaming or a final message depending on server; try to read message
+        if isinstance(data, dict) and "message" in data and isinstance(data["message"], dict):
+            return data["message"].get("content", "")
+        # Fallback: try standard generate endpoint format
+        if isinstance(data, dict) and "response" in data:
+            return data.get("response", "")
+        return "I couldn't generate a response from the local model."
+
+    def _is_count_question(self, question: str) -> bool:
+        q = question.lower()
+        indicators = [
+            "how many", "number of", "count of", "from how many", "total number", "n =",
+        ]
+        return any(ind in q for ind in indicators)
+
+    def _extract_count_answer(self, question: str, chunks: List[PaperChunk]) -> Optional[Dict[str, str]]:
+        """Try to extract a numeric answer directly from chunk text near target keywords."""
+        import re
+        q = question.lower()
+        # derive target keywords from question
+        target_terms = ["country", "countries", "review", "reviews", "estimated", "from", "participants", "sample"]
+        # compile regex patterns for numbers near the word 'countries'
+        patterns = [
+            r"\b(?:from\s+)?(\d{1,4})\s+countries\b",
+            r"\bcountries\b[^\d]{0,20}(\d{1,4})\b",
+            r"\b(\d{1,4})\b[^\n\.]{0,30}\bcountries\b",
+            r"\bN\s*[=:]\s*(\d{1,5})\b",
+        ]
+        for chunk in chunks:
+            text = chunk.content.strip()
+            text_l = text.lower()
+            if not any(term in text_l for term in target_terms):
+                continue
+            # split into sentences and search
+            sentences = re.split(r"(?<=[\.!\?])\s+", text)
+            for sent in sentences:
+                sent_l = sent.lower()
+                if not any(term in sent_l for term in target_terms):
+                    continue
+                for pat in patterns:
+                    m = re.search(pat, sent, flags=re.IGNORECASE)
+                    if m:
+                        val = m.group(1)
+                        # sanity check numeric range
+                        try:
+                            n = int(val)
+                            if 1 <= n <= 10000:
+                                return {"value": str(n), "sentence": sent.strip()}
+                        except Exception:
+                            pass
+        return None
+
+    def _format_count_answer(self, question: str, value: str, evidence_sentence: str, paper: Paper) -> str:
+        return (
+            f"According to the paper '{paper.title}', the answer is {value}.\n\n"
+            f"Evidence: \"{evidence_sentence}\""
+        )
     
     def _split_text(self, text: str) -> List[str]:
         """Split text into chunks."""
