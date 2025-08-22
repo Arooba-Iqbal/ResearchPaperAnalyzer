@@ -3,7 +3,8 @@ API views for the papers app.
 """
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
@@ -72,6 +73,7 @@ class PaperUploadView(generics.CreateAPIView):
     """Upload a new paper."""
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = PaperUploadSerializer
+    permission_classes = [IsAuthenticated]
     
     def perform_create(self, serializer):
         paper = serializer.save()
@@ -148,6 +150,7 @@ class GraphDataView(generics.GenericAPIView):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def process_paper_references(request, pk):
     """Manually trigger reference extraction for a paper."""
     try:

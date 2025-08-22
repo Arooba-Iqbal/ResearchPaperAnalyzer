@@ -20,6 +20,7 @@ class RAGEngine:
             self.top_k = int(os.getenv('RAG_TOP_K', '5'))
         except ValueError:
             self.top_k = 5
+        
         # Local LLM (Ollama) configuration
         self.use_ollama = os.getenv('USE_OLLAMA', 'false').lower() == 'true'
         self.ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')

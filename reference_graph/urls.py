@@ -10,6 +10,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('papers.urls')),
     path('api/chatbot/', include('chatbot.urls')),
+    path('accounts/', include(('accounts.urls', 'accounts'), namespace='accounts')),
     path('', include('reference_graph.frontend_urls')),
 ]
 

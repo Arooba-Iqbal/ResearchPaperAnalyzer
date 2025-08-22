@@ -3,6 +3,7 @@ Frontend URL configuration for reference_graph project.
 """
 from django.urls import path
 from . import views
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -11,4 +12,6 @@ urlpatterns = [
     path('upload/', views.upload_paper, name='upload_paper'),
     path('test-graph/', views.test_graph, name='test_graph'),
     path('chatbot-test/', views.chatbot_test, name='chatbot_test'),
+    path('login/', RedirectView.as_view(pattern_name='accounts:login', permanent=False), name='login_page'),
+    path('signup/', RedirectView.as_view(pattern_name='accounts:signup', permanent=False), name='signup_page'),
 ]

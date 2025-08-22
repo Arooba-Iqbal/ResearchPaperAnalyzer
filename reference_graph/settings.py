@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'papers',
     'chatbot',
+    'accounts',
     'reference_graph',
 ]
 
