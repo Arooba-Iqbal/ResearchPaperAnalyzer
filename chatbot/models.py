@@ -7,6 +7,7 @@ from papers.models import Paper
 import uuid
 
 
+
 class Conversation(models.Model):
     """Model representing a conversation session."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -95,3 +96,5 @@ class PaperHighlight(models.Model):
     
     def __str__(self):
         return f"Highlight: {self.text_content[:50]}... on {self.paper.title}"
+
+

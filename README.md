@@ -2,7 +2,7 @@
 
 A comprehensive Django-based academic paper reference graph system with RAG (Retrieval-Augmented Generation) capabilities. This application allows users to upload academic papers, automatically extract references, build interconnected citation networks, and interact with papers through an AI-powered chatbot.
 
-## 🚀 Features
+##  Features
 
 ### Core Functionality
 - **Paper Upload & Processing**: Support for PDF, DOCX, and TXT files
@@ -144,7 +144,7 @@ celery -A reference_graph beat --loglevel=info
 - Relevant content is automatically highlighted
 - Conversation history is maintained
 
-## 🔧 Configuration
+## Configuration
 
 ### OpenAI API
 ```python
@@ -165,7 +165,7 @@ CHROMA_DB_PATH = '/path/to/chroma_db'
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
 ```
 
-## 📊 API Endpoints
+## API Endpoints
 
 ### Papers
 - `GET /api/papers/` - List all papers
@@ -179,7 +179,7 @@ MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
 - `GET /api/chatbot/conversations/` - List conversations
 - `GET /api/chatbot/papers/{id}/highlights/` - Get highlights
 
-## 🧪 Testing
+##  Testing
 
 ```bash
 # Run all tests
@@ -194,7 +194,7 @@ coverage run --source='.' manage.py test
 coverage report
 ```
 
-## 🚀 Deployment
+##  Deployment
 
 ### Production Settings
 ```python
