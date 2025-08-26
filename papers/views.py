@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from .models import Paper, Reference, PaperChunk
 from .serializers import (
@@ -16,6 +16,7 @@ from .serializers import (
     PaperUploadSerializer
 )
 from .utils import extract_references_from_paper
+from .reference_graph_builder import build_reference_graph_for_paper, get_paper_for_chat
 
 
 class PaperListView(generics.ListAPIView):
@@ -39,6 +40,30 @@ class PaperDetailView(generics.RetrieveAPIView):
     """Retrieve a specific paper."""
     queryset = Paper.objects.all()
     serializer_class = PaperSerializer
+
+
+class PaperGraphView(generics.RetrieveAPIView):
+    """Display interactive reference graph for a paper."""
+    queryset = Paper.objects.all()
+    serializer_class = PaperSerializer
+    template_name = 'reference_graph_interactive.html'
+    
+    def get(self, request, *args, **kwargs):
+        paper = self.get_object()
+        
+        # Compute status values for the template
+        chunks_with_embeddings = paper.chunks.filter(embedding__isnull=False).exists()
+        paper_status = 'ready' if (paper.processed and chunks_with_embeddings) else 'processing' if paper.processed else 'error'
+        
+        context = {
+            'paper': paper,
+            'paper_status': paper_status,
+            'chunks_with_embeddings': chunks_with_embeddings,
+            'chunks_count': paper.chunks.count(),
+            'embeddings_count': paper.chunks.filter(embedding__isnull=False).count()
+        }
+        
+        return render(request, self.template_name, context)
 
 
 class PaperReferencesView(generics.ListAPIView):
@@ -77,8 +102,22 @@ class PaperUploadView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         paper = serializer.save()
+        
         # Extract references synchronously (no recursion on upload)
         extract_references_from_paper(str(paper.id))
+        
+        # Process paper with RAG engine to generate embeddings and chunks
+        try:
+            from chatbot.rag_engine import VectorRAGEngine
+            rag_engine = VectorRAGEngine()
+            success = rag_engine.process_paper(paper)
+            if success:
+                print(f"Successfully processed paper {paper.id} with RAG engine")
+            else:
+                print(f"Failed to process paper {paper.id} with RAG engine")
+        except Exception as e:
+            print(f"Error processing paper {paper.id} with RAG engine: {e}")
+            # Don't fail the upload, just log the error
 
 
 class PaperSearchView(generics.ListAPIView):
@@ -183,4 +222,92 @@ def process_paper_references(request, pk):
         print(f"Error in process_paper_references: {e}")
         return Response({
             'error': f'Error processing references: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def process_paper_rag(request, pk):
+    """Manually trigger RAG processing for a paper."""
+    try:
+        print(f"Processing RAG for paper: {pk}")
+        paper = get_object_or_404(Paper, pk=pk)
+        print(f"Found paper: {paper.title}")
+        
+        # Check if paper has content
+        if not paper.content_text and not paper.file:
+            return Response({
+                'error': 'Paper has no content or file to process'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Process with RAG engine
+        from chatbot.rag_engine import VectorRAGEngine
+        rag_engine = VectorRAGEngine()
+        success = rag_engine.process_paper(paper)
+        
+        if success:
+            # Refresh paper to get updated chunk count
+            paper.refresh_from_db()
+            chunk_count = paper.chunks.count()
+            chunks_with_embeddings = paper.chunks.filter(embedding__isnull=False).count()
+            
+            return Response({
+                'message': 'RAG processing completed successfully',
+                'chunks_created': chunk_count,
+                'chunks_with_embeddings': chunks_with_embeddings,
+                'paper_processed': paper.processed
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'error': 'RAG processing failed'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    except Exception as e:
+        print(f"Error in process_paper_rag: {e}")
+        return Response({
+            'error': f'Error processing RAG: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_reference_graph(request, pk):
+    """Get reference graph for a specific paper."""
+    try:
+        paper = get_object_or_404(Paper, pk=pk)
+        
+        # Build reference graph
+        graph_data = build_reference_graph_for_paper(str(paper.id), max_depth=2)
+        
+        return Response({
+            'paper_id': str(paper.id),
+            'paper_title': paper.title,
+            'graph': graph_data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"Error building reference graph: {e}")
+        return Response({
+            'error': f'Error building reference graph: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_paper_details(request, pk):
+    """Get detailed information about a paper for graph interaction."""
+    try:
+        paper_info = get_paper_for_chat(str(pk))
+        
+        if not paper_info:
+            return Response({
+                'error': 'Paper not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response(paper_info, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"Error getting paper details: {e}")
+        return Response({
+            'error': f'Error getting paper details: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

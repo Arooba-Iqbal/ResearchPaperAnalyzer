@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load paper_formatting %}
 
 {% block title %}{{ paper.title }} - Paper Detail{% endblock %}
 
@@ -11,29 +12,391 @@
     position: relative;
     height: 80vh;
     overflow: hidden;
+    background: #f5f5f5;
+    padding: 2rem;
+    border-radius: 12px;
 }
 
 .paper-viewer {
     width: 100%;
     height: 100%;
     border: 1px solid #ddd;
-    border-radius: 8px;
-    background: #f8f9fa;
+    border-radius: 12px;
+    background: white;
     position: relative;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    overflow: hidden;
 }
 
 .paper-content {
-    padding: 2rem;
+    padding: 3rem 4rem;
     height: 100%;
     overflow-y: auto;
-    font-family: 'Times New Roman', serif;
-    line-height: 1.6;
-    font-size: 14px;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    line-height: 1.8;
+    font-size: 16px;
+    color: #2c3e50;
+    background: white;
+    max-width: 900px;
+    margin: 0 auto;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
 }
 
 .paper-content.zoomed {
-    font-size: 18px;
-    line-height: 1.8;
+    font-size: 20px;
+    line-height: 2.0;
+}
+
+/* Professional Research Paper Typography */
+.paper-content h1, .paper-content h2, .paper-content h3, 
+.paper-content h4, .paper-content h5, .paper-content h6 {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-weight: 600;
+    color: #1a252f;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    page-break-after: avoid;
+}
+
+.paper-content h1 {
+    font-size: 1.8em;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.5rem;
+    margin-top: 0;
+}
+
+.paper-content h2 {
+    font-size: 1.5em;
+    border-bottom: 1px solid #bdc3c7;
+    padding-bottom: 0.3rem;
+}
+
+.paper-content h3 {
+    font-size: 1.3em;
+    color: #34495e;
+}
+
+.paper-content h4, .paper-content h5, .paper-content h6 {
+    font-size: 1.1em;
+    color: #2c3e50;
+}
+
+/* Paragraph and text styling */
+.paper-content p {
+    margin-bottom: 1.2rem;
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+}
+
+.paper-content p:first-of-type {
+    text-indent: 2em;
+}
+
+.paper-content p:not(:first-of-type) {
+    text-indent: 0;
+}
+
+/* Abstract styling */
+.paper-content .abstract {
+    background: #f8f9fa;
+    border-left: 4px solid #3498db;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+}
+
+.paper-content .abstract::before {
+    content: "Abstract";
+    font-weight: bold;
+    font-style: normal;
+    color: #3498db;
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1.1em;
+}
+
+/* Introduction section */
+.paper-content .introduction {
+    margin-top: 3rem;
+}
+
+.paper-content .introduction::before {
+    content: "1. Introduction";
+    font-weight: bold;
+    font-size: 1.5em;
+    color: #1a252f;
+    display: block;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.5rem;
+}
+
+/* Section headers */
+.paper-content .section {
+    margin-top: 2.5rem;
+    page-break-inside: avoid;
+}
+
+.paper-content .section-header {
+    font-weight: bold;
+    font-size: 1.3em;
+    color: #34495e;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #bdc3c7;
+    padding-bottom: 0.3rem;
+}
+
+/* Lists styling */
+.paper-content ul, .paper-content ol {
+    margin: 1rem 0 1rem 2rem;
+    padding-left: 1rem;
+}
+
+.paper-content li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+}
+
+/* Blockquotes and citations */
+.paper-content blockquote {
+    border-left: 4px solid #e74c3c;
+    padding-left: 1.5rem;
+    margin: 1.5rem 0;
+    font-style: italic;
+    color: #7f8c8d;
+    background: #f8f9fa;
+    padding: 1rem 1.5rem;
+    border-radius: 0 8px 8px 0;
+}
+
+/* Tables styling */
+.paper-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.9em;
+}
+
+.paper-content th, .paper-content td {
+    border: 1px solid #bdc3c7;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.paper-content th {
+    background: #ecf0f1;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Figure and table captions */
+.paper-content .caption {
+    text-align: center;
+    font-style: italic;
+    color: #7f8c8d;
+    margin: 0.5rem 0 1.5rem 0;
+    font-size: 0.9em;
+}
+
+/* Mathematical expressions */
+.paper-content .math {
+    font-family: 'Times New Roman', serif;
+    font-style: italic;
+    text-align: center;
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+/* Enhanced paragraph spacing and readability */
+.paper-content p {
+    orphans: 3;
+    widows: 3;
+}
+
+/* Professional figure and image styling */
+.paper-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin: 1.5rem auto;
+    display: block;
+}
+
+/* Enhanced list styling */
+.paper-content ul li, .paper-content ol li {
+    position: relative;
+    padding-left: 0.5rem;
+}
+
+.paper-content ul li::before {
+    content: "•";
+    color: #3498db;
+    font-weight: bold;
+    position: absolute;
+    left: -1rem;
+}
+
+.paper-content ol {
+    counter-reset: item;
+}
+
+.paper-content ol li {
+    counter-increment: item;
+}
+
+.paper-content ol li::before {
+    content: counter(item) ".";
+    color: #3498db;
+    font-weight: bold;
+    position: absolute;
+    left: -1.5rem;
+}
+
+/* References section */
+.paper-content .references {
+    margin-top: 3rem;
+    border-top: 2px solid #3498db;
+    padding-top: 2rem;
+}
+
+.paper-content .references::before {
+    content: "References";
+    font-weight: bold;
+    font-size: 1.5em;
+    color: #1a252f;
+    display: block;
+    margin-bottom: 1.5rem;
+}
+
+/* Page breaks and spacing */
+.paper-content .page-break {
+    page-break-before: always;
+    margin-top: 2rem;
+}
+
+/* Highlighting for search results */
+.paper-content .highlight {
+    background: #fff3cd;
+    padding: 0.1rem 0.2rem;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .paper-content {
+        padding: 2rem;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    .paper-content.zoomed {
+        font-size: 16px;
+        line-height: 1.8;
+    }
+}
+
+/* Print styles for professional appearance */
+@media print {
+    .paper-content {
+        padding: 0;
+        margin: 0;
+        font-size: 12pt;
+        line-height: 1.5;
+        color: black;
+        background: white;
+        box-shadow: none;
+    }
+    
+    .paper-content h1, .paper-content h2, .paper-content h3 {
+        page-break-after: avoid;
+        break-after: avoid;
+    }
+    
+    .paper-content .page-break {
+        page-break-before: always;
+        break-before: page;
+    }
+}
+
+/* Enhanced zoom controls */
+.zoom-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    padding: 0.5rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.zoom-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin: 0 0.2rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.zoom-btn:hover {
+    background: #0056b3;
+}
+
+/* Paper metadata styling */
+.paper-metadata {
+    background: #f8f9fa;
+    border-left: 4px solid #3498db;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    border-radius: 0 8px 8px 0;
+}
+
+.paper-metadata h4 {
+    color: #3498db;
+    margin-bottom: 1rem;
+    font-size: 1.2em;
+}
+
+.metadata-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.metadata-item i {
+    width: 20px;
+    color: #7f8c8d;
+    margin-right: 0.5rem;
+}
+
+.abstract-preview {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.abstract-preview h5 {
+    color: #495057;
+    margin-bottom: 1rem;
+    font-size: 1.1em;
+}
+
+.abstract-preview h5 i {
+    color: #6c757d;
+    margin-right: 0.5rem;
 }
 
 .chatbot-panel {
@@ -214,26 +577,69 @@
             
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h1 class="h2 mb-2">{{ paper.title }}</h1>
-                    <p class="text-muted mb-2">
-                        <i class="fas fa-user"></i> {{ paper.author }}
-                        {% if paper.year %} • <i class="fas fa-calendar"></i> {{ paper.year }}{% endif %}
-                        {% if paper.journal %} • <i class="fas fa-book"></i> {{ paper.journal }}{% endif %}
-                    </p>
+                    <h1 class="h2 mb-3">{{ paper.title }}</h1>
+                    
+                    <!-- Professional Paper Metadata -->
+                    <div class="paper-metadata">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="metadata-item">
+                                    <i class="fas fa-user"></i>
+                                    <strong>Author:</strong> {{ paper.author|default:"Unknown" }}
+                                </div>
+                                {% if paper.year %}
+                                <div class="metadata-item">
+                                    <i class="fas fa-calendar"></i>
+                                    <strong>Year:</strong> {{ paper.year }}
+                                </div>
+                                {% endif %}
+                                {% if paper.journal %}
+                                <div class="metadata-item">
+                                    <i class="fas fa-book"></i>
+                                    <strong>Journal:</strong> {{ paper.journal }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metadata-item">
+                                    <i class="fas fa-upload"></i>
+                                    <strong>Uploaded:</strong> {{ paper.uploaded_at|date:"F d, Y" }}
+                                </div>
+                                <div class="metadata-item">
+                                    <i class="fas fa-link"></i>
+                                    <strong>References:</strong> {{ paper.references.count }}
+                                </div>
+                                {% if paper.processed %}
+                                <div class="metadata-item">
+                                    <i class="fas fa-cogs"></i>
+                                    <strong>Status:</strong> 
+                                    <span class="badge bg-success">Processed</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
                     {% if paper.abstract %}
-                    <p class="lead">{{ paper.abstract }}</p>
+                    <div class="abstract-preview">
+                        <h5><i class="fas fa-quote-left"></i> Abstract</h5>
+                        <p class="text-muted">{{ paper.abstract|truncatewords:50 }}</p>
+                    </div>
                     {% endif %}
                 </div>
                 <div class="btn-group" role="group">
                     <button class="btn btn-outline-primary" onclick="toggleZoom()">
                         <i class="fas fa-search-plus"></i> Toggle Zoom
                     </button>
-                            <button class="btn btn-outline-info" onclick="toggleChatbot()">
-            <i class="fas fa-comments"></i> Toggle Chatbot
-        </button>
-        <button class="btn btn-outline-warning" onclick="clearHighlights()" id="clearHighlightsBtn" style="display: none;">
-            <i class="fas fa-eraser"></i> Clear Highlights
-        </button>
+                    <button class="btn btn-outline-info" onclick="toggleChatbot()">
+                        <i class="fas fa-comments"></i> Toggle Chatbot
+                    </button>
+                    <button class="btn btn-outline-warning" onclick="clearHighlights()" id="clearHighlightsBtn" style="display: none;">
+                        <i class="fas fa-eraser"></i> Clear Highlights
+                    </button>
+                    <a href="{% url 'papers:paper-graph' paper.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-project-diagram"></i> Reference Graph
+                    </a>
                     {% if paper.file %}
                         <a href="{{ paper.file.url }}" class="btn btn-outline-success" target="_blank">
                             <i class="fas fa-download"></i> Download
@@ -269,7 +675,7 @@
                     <!-- Paper Content -->
                     <div class="paper-content" id="paperContent">
                         {% if paper.content_text and paper.content_text.strip %}
-                            {{ paper.content_text|linebreaks }}
+                            {{ paper.content_text|format_paper_content|add_paper_structure|safe }}
                         {% else %}
                             <div class="text-center py-5">
                                 <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
@@ -449,9 +855,17 @@ function toggleZoom() {
     if (content.classList.contains('zoomed')) {
         content.classList.remove('zoomed');
         currentZoom = 1;
+        // Reset to default professional styling
+        content.style.fontSize = '';
+        content.style.lineHeight = '';
+        content.style.padding = '';
     } else {
         content.classList.add('zoomed');
         currentZoom = 1.5;
+        // Enhanced zoom with better readability
+        content.style.fontSize = '20px';
+        content.style.lineHeight = '2.0';
+        content.style.padding = '4rem 5rem';
     }
     applyZoom();
 }

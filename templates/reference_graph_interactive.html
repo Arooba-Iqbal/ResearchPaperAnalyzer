@@ -1,0 +1,533 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reference Graph - {{ paper.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .graph-container {
+        width: 100%;
+        height: 80vh;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f8f9fa;
+        position: relative;
+    }
+    
+    .graph-controls {
+        margin: 20px 0;
+        padding: 15px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .paper-info {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .paper-info h3 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    
+    .paper-info .meta {
+        color: #666;
+        font-size: 0.9em;
+        margin-bottom: 15px;
+    }
+    
+    .paper-info .status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: bold;
+    }
+    
+    .status.ready {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status.processing {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .status.error {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .paper-selection-info {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-top: 20px;
+    }
+    
+    .selected-paper-details {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+    }
+    
+    .selected-paper-details h5 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    
+    .paper-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .paper-actions .btn {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .graph-legend {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .legend-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-top: 10px;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9em;
+    }
+    
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 1px solid #666;
+    }
+    
+    .node-tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        pointer-events: none;
+        z-index: 1000;
+        max-width: 200px;
+    }
+    
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+    
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="paper-info">
+                <h3>{{ paper.title }}</h3>
+                <div class="meta">
+                    <strong>Author:</strong> {{ paper.author|default:"Unknown" }}<br>
+                    <strong>Uploaded:</strong> {{ paper.uploaded_at|date:"M d, Y" }}<br>
+                    <strong>References:</strong> {{ paper.references.count }}
+                </div>
+                <div class="status {{ paper_status }}">
+                    {% if paper_status == 'ready' %}
+                        ✅ Ready for Chat
+                    {% elif paper_status == 'processing' %}
+                        ⚠️ Processing Embeddings
+                    {% else %}
+                        ❌ Needs Processing
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="graph-controls">
+                <h4>Reference Graph Controls</h4>
+                <button id="buildGraphBtn" class="btn btn-primary">Build Reference Graph</button>
+                <button id="refreshGraphBtn" class="btn btn-secondary" style="display: none;">Refresh Graph</button>
+                <span id="graphStatus" class="ml-3"></span>
+                
+                <div class="graph-legend mt-3">
+                    <h6>Node Legend:</h6>
+                    <div class="legend-items">
+                        <span class="legend-item">
+                            <span class="legend-color" style="background: #FF6B6B;"></span>
+                            <strong>Red:</strong> Root Paper (Your Upload)
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-color" style="background: #4ECDC4;"></span>
+                            <strong>Teal:</strong> References with Content
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-color" style="background: #FFA07A;"></span>
+                            <strong>Orange:</strong> References without Content
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-color" style="background: #45B7D1;"></span>
+                            <strong>Blue:</strong> 2nd Level References with Content
+                        </span>
+                        <span class="legend-item">
+                            <span class="legend-color" style="background: #DDA0DD;"></span>
+                            <strong>Plum:</strong> 2nd Level References without Content
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="graph-container" id="graphContainer">
+                <div class="loading">
+                    <h4>Click "Build Reference Graph" to visualize the reference structure</h4>
+                    <p>This will show papers that reference this paper and their references (up to 2 levels deep)</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="paper-selection-info" id="paperSelectionInfo" style="display: none;">
+                <h4>Selected Paper</h4>
+                <div id="selectedPaperDetails" class="selected-paper-details">
+                    <p>Click on any node in the graph to select a paper</p>
+                </div>
+                <div class="paper-actions">
+                    <a id="openPaperLink" href="#" class="btn btn-primary" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> Open Paper
+                    </a>
+                    <button id="processPaperBtn" class="btn btn-warning" style="display: none;">
+                        <i class="fas fa-cogs"></i> Process Paper
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Node Tooltip -->
+<div class="node-tooltip" id="nodeTooltip" style="display: none;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script>
+let network = null;
+let currentPaperId = '{{ paper.id }}';
+let selectedPaperId = null;
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    setupEventListeners();
+    checkPaperStatus();
+});
+
+function setupEventListeners() {
+    document.getElementById('buildGraphBtn').addEventListener('click', buildReferenceGraph);
+    document.getElementById('refreshGraphBtn').addEventListener('click', buildReferenceGraph);
+    document.getElementById('processPaperBtn').addEventListener('click', function() {
+        if (selectedPaperId) {
+            processPaper(selectedPaperId);
+        }
+    });
+}
+
+function checkPaperStatus() {
+    // No need to check status for the graph page
+    // The existing chatbot will handle paper interaction
+}
+
+function buildReferenceGraph() {
+    const statusEl = document.getElementById('graphStatus');
+    const buildBtn = document.getElementById('buildGraphBtn');
+    const refreshBtn = document.getElementById('refreshGraphBtn');
+    
+    statusEl.textContent = 'Building graph...';
+    buildBtn.disabled = true;
+    
+    fetch(`/api/papers/${currentPaperId}/reference-graph/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            displayGraph(data.graph);
+            statusEl.textContent = `Graph built with ${data.graph.nodes.length} nodes`;
+            buildBtn.style.display = 'none';
+            refreshBtn.style.display = 'inline-block';
+        })
+        .catch(error => {
+            console.error('Error building graph:', error);
+            statusEl.textContent = `Error: ${error.message}`;
+            buildBtn.disabled = false;
+        });
+}
+
+function displayGraph(graphData) {
+    const container = document.getElementById('graphContainer');
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    if (!graphData.nodes || graphData.nodes.length === 0) {
+        container.innerHTML = '<div class="loading"><h4>No references found</h4><p>This paper has no references or they are not accessible.</p></div>';
+        return;
+    }
+    
+    // Create nodes and edges for vis.js
+    const nodes = new vis.DataSet(graphData.nodes.map(node => ({
+        id: node.id,
+        label: node.label,
+        title: node.title,
+        group: node.group,
+        color: node.color,
+        size: node.size,
+        level: node.level,
+        paper_id: node.paper_id,
+        has_content: node.has_content
+    })));
+    
+    const edges = new vis.DataSet(graphData.edges);
+    
+    // Network configuration
+    const options = {
+        nodes: {
+            shape: 'dot',
+            font: {
+                size: 12,
+                face: 'Arial'
+            },
+            borderWidth: 2,
+            shadow: true
+        },
+        edges: {
+            width: 2,
+            shadow: true,
+            smooth: {
+                type: 'continuous'
+            }
+        },
+        physics: {
+            stabilization: false,
+            barnesHut: {
+                gravitationalConstant: -80000,
+                springConstant: 0.001,
+                springLength: 200
+            }
+        },
+        interaction: {
+            hover: true,
+            tooltipDelay: 200
+        }
+    };
+    
+    // Create network
+    network = new vis.Network(container, { nodes, edges }, options);
+    
+    // Event listeners
+    network.on('click', function(params) {
+        if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            const node = nodes.get(nodeId);
+            
+            // Only allow selection of papers with content
+            if (node.has_content) {
+                selectPaper(node.paper_id, node);
+            } else {
+                // Show message for papers without content
+                alert(`This paper (${node.title}) doesn't have accessible content yet.\n\nYou can:\n1. Download the paper if available\n2. Process it if you have the file\n3. Find it online using the reference information`);
+            }
+        }
+    });
+    
+    network.on('hoverNode', function(params) {
+        showNodeTooltip(params.node, params.event);
+    });
+    
+    network.on('blurNode', function(params) {
+        hideNodeTooltip();
+    });
+}
+
+function showNodeTooltip(nodeId, event) {
+    const tooltip = document.getElementById('nodeTooltip');
+    const node = network.body.data.nodes.get(nodeId);
+    
+    const levelText = node.level === 0 ? 'Root' : node.level === 1 ? 'Child' : 'Grandchild';
+    const contentStatus = node.has_content ? '✅ Available' : '❌ Not Available';
+    const clickableStatus = node.has_content ? 'Click to open' : 'No content to open';
+    
+    tooltip.innerHTML = `
+        <strong>${node.title}</strong><br>
+        Author: ${node.author || 'Unknown'}<br>
+        Level: ${levelText}<br>
+        Content: ${contentStatus}<br>
+        <small>${clickableStatus}</small>
+    `;
+    
+    tooltip.style.left = event.center.x + 10 + 'px';
+    tooltip.style.top = event.center.y - 10 + 'px';
+    tooltip.style.display = 'block';
+}
+
+function hideNodeTooltip() {
+    document.getElementById('nodeTooltip').style.display = 'none';
+}
+
+function selectPaper(paperId, nodeData) {
+    selectedPaperId = paperId;
+    
+    // Update UI to show selected paper
+    document.getElementById('paperSelectionInfo').style.display = 'block';
+    
+    // Get paper details
+    fetch(`/api/papers/${paperId}/details/`)
+        .then(response => response.json())
+        .then(data => {
+            const detailsDiv = document.getElementById('selectedPaperDetails');
+            const openLink = document.getElementById('openPaperLink');
+            const processBtn = document.getElementById('processPaperBtn');
+            
+            // Update paper details
+            detailsDiv.innerHTML = `
+                <h5>${data.title}</h5>
+                <p><strong>Author:</strong> ${data.author || 'Unknown'}</p>
+                <p><strong>Status:</strong> ${data.can_chat ? '✅ Ready for Chat' : '⚠️ Needs Processing'}</p>
+                <p><strong>Content Available:</strong> ${data.has_content ? '✅ Yes' : '❌ No'}</p>
+            `;
+            
+            // Update open link
+            openLink.href = `/api/papers/${paperId}/`;
+            
+            // Show/hide process button based on content availability
+            if (!data.has_content) {
+                processBtn.style.display = 'inline-block';
+                processBtn.textContent = '📥 Download/Process Paper';
+            } else if (!data.can_chat) {
+                processBtn.style.display = 'inline-block';
+                processBtn.textContent = '⚙️ Process for Chat';
+            } else {
+                processBtn.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error getting paper details:', error);
+            document.getElementById('selectedPaperDetails').innerHTML = `
+                <p class="text-danger">Error loading paper details. Please try again.</p>
+            `;
+        });
+}
+
+function processPaper(paperId) {
+    const detailsDiv = document.getElementById('selectedPaperDetails');
+    const processBtn = document.getElementById('processPaperBtn');
+    
+    // Update UI to show processing
+    detailsDiv.innerHTML += `
+        <div class="alert alert-info mt-2">
+            <i class="fas fa-cogs"></i> Processing paper... This may take a few minutes.
+        </div>
+    `;
+    
+    processBtn.disabled = true;
+    processBtn.textContent = 'Processing...';
+    
+    fetch(`/api/papers/${paperId}/process-rag/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Update UI with success
+        detailsDiv.innerHTML = `
+            <h5>Paper Processing Complete!</h5>
+            <div class="alert alert-success">
+                ✅ Paper processed successfully!<br>
+                Chunks: ${data.chunks_created}<br>
+                Embeddings: ${data.chunks_with_embeddings}<br>
+                <strong>You can now open this paper and use the chatbot!</strong>
+            </div>
+        `;
+        
+        // Update button
+        processBtn.disabled = false;
+        processBtn.textContent = '✅ Processing Complete';
+        processBtn.style.background = '#28a745';
+        
+        // Refresh the graph to show updated status
+        setTimeout(() => {
+            buildReferenceGraph();
+        }, 2000);
+    })
+    .catch(error => {
+        console.error('Error processing paper:', error);
+        
+        // Update UI with error
+        detailsDiv.innerHTML += `
+            <div class="alert alert-danger mt-2">
+                ❌ Error processing paper: ${error.message}
+            </div>
+        `;
+        
+        // Reset button
+        processBtn.disabled = false;
+        processBtn.textContent = '⚙️ Process for Chat';
+        processBtn.style.background = '#ffc107';
+    });
+}
+
+// Chat functionality removed - use existing chatbot on paper detail page
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

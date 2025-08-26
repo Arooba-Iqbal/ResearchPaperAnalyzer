@@ -8,11 +8,12 @@ A comprehensive Django-based academic paper reference graph system with RAG (Ret
 - **Paper Upload & Processing**: Support for PDF, DOCX, and TXT files
 - **Automatic Reference Extraction**: AI-powered extraction of citations and references
 - **Reference Graph Visualization**: Interactive network graph showing paper relationships
-- **RAG-Powered Chatbot**: Ask questions about any paper and get intelligent responses
+- **Vector Embeddings RAG**: Advanced semantic search using vector embeddings
 - **Content Highlighting**: Automatic highlighting of relevant content based on questions
 
 ### Advanced Features
-- **Vector Database Integration**: ChromaDB for efficient document retrieval
+- **Vector Embeddings**: Sentence transformers for semantic similarity search
+- **FAISS Index**: Fast similarity search across paper chunks
 - **AI-Powered Analysis**: OpenAI integration for intelligent paper understanding
 - **Real-time Processing**: Asynchronous processing with Celery and Redis
 - **Responsive Design**: Modern, mobile-friendly interface
@@ -21,6 +22,7 @@ A comprehensive Django-based academic paper reference graph system with RAG (Ret
 ### Technical Features
 - **Django REST Framework**: Robust API endpoints
 - **Vector Embeddings**: Sentence transformers for semantic search
+- **FAISS**: Fast similarity search and indexing
 - **Document Chunking**: Intelligent text segmentation for RAG
 - **Reference Pattern Recognition**: Advanced regex patterns for citation extraction
 - **External API Integration**: CrossRef and arXiv for paper metadata
@@ -43,8 +45,8 @@ A comprehensive Django-based academic paper reference graph system with RAG (Ret
 
 - **Backend**: Django 4.2, Django REST Framework
 - **Database**: SQLite (default), PostgreSQL (production)
-- **Vector Database**: ChromaDB
-- **AI/ML**: OpenAI GPT, Sentence Transformers
+- **Vector Search**: FAISS for fast similarity search
+- **AI/ML**: OpenAI GPT, Sentence Transformers, Vector Embeddings
 - **Task Queue**: Celery + Redis
 - **Frontend**: Bootstrap 5, JavaScript, Vis.js
 - **File Processing**: PyPDF2, python-docx
@@ -106,7 +108,25 @@ sudo systemctl start redis
 # On Windows, download Redis from https://redis.io/download
 ```
 
-### 7. Run the Application
+### 7. Install Vector Embeddings Dependencies
+```bash
+# Install new dependencies for vector embeddings
+python install_vector_deps.py
+
+# Or manually install
+pip install sentence-transformers numpy scikit-learn faiss-cpu
+```
+
+### 8. Rebuild Embeddings (for existing papers)
+```bash
+# Rebuild embeddings for all existing papers
+python manage.py rebuild_embeddings
+
+# Test the system
+python test_vector_rag.py
+```
+
+### 9. Run the Application
 ```bash
 # Terminal 1: Django server
 python manage.py runserver
@@ -140,9 +160,17 @@ celery -A reference_graph beat --loglevel=info
 
 ### 4. Chat with Papers
 - Ask questions about methodology, findings, or references
-- AI provides context-aware answers
+- AI provides context-aware answers using vector embeddings
+- Semantic search finds most relevant content automatically
 - Relevant content is automatically highlighted
 - Conversation history is maintained
+
+### 5. Vector Embeddings Features
+- **Semantic Search**: Find content by meaning, not just keywords
+- **FAISS Index**: Fast similarity search across all paper chunks
+- **Local Models**: Use sentence-transformers without API costs
+- **OpenAI Integration**: Optional high-quality embeddings
+- **Similarity Scores**: See how relevant each chunk is to your question
 
 ## Configuration
 

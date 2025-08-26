@@ -104,6 +104,25 @@ class ChatView(generics.GenericAPIView):
             })
             
         except Exception as e:
+            # Check if paper has been processed with RAG
+            if not conversation.paper.chunks.exists():
+                return Response({
+                    'error': 'This paper has not been processed yet. Please wait for processing to complete or contact an administrator.',
+                    'paper_processed': False,
+                    'chunks_count': 0
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if chunks have embeddings
+            chunks_with_embeddings = conversation.paper.chunks.filter(embedding__isnull=False).count()
+            if chunks_with_embeddings == 0:
+                return Response({
+                    'error': 'This paper has been processed but embeddings are missing. Please reprocess the paper.',
+                    'paper_processed': conversation.paper.processed,
+                    'chunks_count': conversation.paper.chunks.count(),
+                    'embeddings_count': chunks_with_embeddings
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Generic error
             return Response(
                 {'error': f'Error processing query: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -169,6 +188,25 @@ class PaperChatView(generics.GenericAPIView):
             })
             
         except Exception as e:
+            # Check if paper has been processed with RAG
+            if not paper.chunks.exists():
+                return Response({
+                    'error': 'This paper has not been processed yet. Please wait for processing to complete or contact an administrator.',
+                    'paper_processed': False,
+                    'chunks_count': 0
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if chunks have embeddings
+            chunks_with_embeddings = paper.chunks.filter(embedding__isnull=False).count()
+            if chunks_with_embeddings == 0:
+                return Response({
+                    'error': 'This paper has been processed but embeddings are missing. Please reprocess the paper.',
+                    'paper_processed': paper.processed,
+                    'chunks_count': paper.chunks.count(),
+                    'embeddings_count': chunks_with_embeddings
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Generic error
             return Response(
                 {'error': f'Error processing query: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
